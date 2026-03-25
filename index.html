@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gitflow ≋ — The Streamliner AI</title>
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #050a14;
+      --panel:      #0b1526;
+      --border:     #1a3a5c;
+      --accent:     #00d4ff;
+      --accent2:    #7b2fff;
+      --green:      #00ff99;
+      --amber:      #ffb800;
+      --red:        #ff3860;
+      --text:       #c8e6ff;
+      --text-dim:   #4a7a9b;
+      --glow:       0 0 12px var(--accent);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      overflow-x: hidden;
+    }
+
+    /* ─── Scanline overlay ─────────────────────────────────────────────── */
+    body::before {
+      content: '';
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,212,255,.03) 3px,
+        rgba(0,212,255,.03) 4px
+      );
+      z-index: 9999;
+    }
+
+    /* ─── Layout ───────────────────────────────────────────────────────── */
+    .shell {
+      display: grid;
+      grid-template-rows: 56px 1fr;
+      grid-template-columns: 220px 1fr 260px;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* ─── Top bar ──────────────────────────────────────────────────────── */
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--panel);
+      position: relative;
+    }
+    .topbar .logo {
+      font-size: 22px;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-shadow: var(--glow);
+    }
+    .topbar .title {
+      font-size: 16px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+    .topbar .subtitle {
+      color: var(--text-dim);
+      font-size: 11px;
+      letter-spacing: 2px;
+      margin-left: auto;
+    }
+    .topbar .clock {
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 2px;
+    }
+    #status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border: 1px solid var(--green);
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--green);
+      text-shadow: 0 0 6px var(--green);
+    }
+    .pulse-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: blink 1.2s ease-in-out infinite;
+    }
+
+    /* ─── Left sidebar — GP Suite ──────────────────────────────────────── */
+    .sidebar-left {
+      border-right: 1px solid var(--border);
+      background: var(--panel);
+      padding: 16px 12px;
+      overflow-y: auto;
+    }
+    .sidebar-left h2 {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .ai-card {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .ai-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+    }
+    .ai-card:hover { background: rgba(0,212,255,.05); }
+    .ai-card.active { border-color: var(--accent); background: rgba(0,212,255,.08); }
+
+    .ai-card[data-ai="gitflow"]::before   { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .ai-card[data-ai="gitpulse"]::before  { background: var(--red);    box-shadow: 0 0 8px var(--red); }
+    .ai-card[data-ai="gitarch"]::before   { background: var(--amber);  box-shadow: 0 0 8px var(--amber); }
+    .ai-card[data-ai="gitsync"]::before   { background: var(--green);  box-shadow: 0 0 8px var(--green); }
+    .ai-card[data-ai="gitscan"]::before   { background: var(--accent2);box-shadow: 0 0 8px var(--accent2); }
+
+    .ai-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .ai-symbol { font-size: 18px; line-height: 1; }
+    .ai-name   { font-size: 12px; font-weight: bold; letter-spacing: 1px; }
+    .ai-role   { font-size: 10px; color: var(--text-dim); line-height: 1.4; }
+    .ai-badge  {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-top: 6px;
+      display: inline-block;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .badge-online  { background: rgba(0,255,153,.15); color: var(--green); border: 1px solid var(--green); }
+    .badge-standby { background: rgba(255,184,0,.1);  color: var(--amber); border: 1px solid var(--amber); }
+    .badge-scan    { background: rgba(123,47,255,.15); color: var(--accent2); border: 1px solid var(--accent2); }
+
+    /* ─── Centre — Main canvas ─────────────────────────────────────────── */
+    .main {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+    }
+
+    /* Giro Brain canvas */
+    #giro-canvas-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      max-height: 320px;
+      background: #020810;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #giro-canvas { display: block; width: 100%; height: 100%; }
+
+    /* Inertia pool + flow controls */
+    .flow-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .panel-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+    }
+
+    /* Sine wave canvas */
+    #wave-canvas { display: block; width: 100%; }
+
+    /* Momentum meter */
+    .meter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .meter-label { width: 90px; font-size: 10px; color: var(--text-dim); }
+    .meter-bar {
+      flex: 1;
+      height: 6px;
+      background: #0d1f33;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .meter-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .4s;
+    }
+    .meter-fill.accent  { background: var(--accent);  box-shadow: 0 0 6px var(--accent); }
+    .meter-fill.green   { background: var(--green);   box-shadow: 0 0 6px var(--green); }
+    .meter-fill.amber   { background: var(--amber);   box-shadow: 0 0 6px var(--amber); }
+    .meter-fill.accent2 { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+    .meter-val { width: 36px; text-align: right; font-size: 10px; color: var(--accent); }
+
+    /* Action buttons */
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .btn {
+      padding: 6px 14px;
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background .2s, box-shadow .2s;
+    }
+    .btn:hover {
+      background: rgba(0,212,255,.12);
+      box-shadow: var(--glow);
+    }
+    .btn.danger {
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .btn.danger:hover {
+      background: rgba(255,56,96,.12);
+      box-shadow: 0 0 10px var(--red);
+    }
+    .btn.success {
+      border-color: var(--green);
+      color: var(--green);
+    }
+    .btn.success:hover {
+      background: rgba(0,255,153,.12);
+      box-shadow: 0 0 10px var(--green);
+    }
+
+    /* ─── Right sidebar — Events & Schematic ───────────────────────────── */
+    .sidebar-right {
+      border-left: 1px solid var(--border);
+      background: var(--panel);
+      padding: 16px 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Event log */
+    #event-log {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    #event-log li {
+      font-size: 10px;
+      padding: 4px 6px;
+      border-left: 2px solid var(--border);
+      line-height: 1.4;
+    }
+    #event-log li.info  { border-color: var(--accent); }
+    #event-log li.warn  { border-color: var(--amber);  color: var(--amber); }
+    #event-log li.error { border-color: var(--red);    color: var(--red); }
+    #event-log li.ok    { border-color: var(--green);  color: var(--green); }
+
+    /* Schematic legend */
+    .schematic-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .schematic-item:last-child { border-bottom: none; }
+    .schematic-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+    .schematic-info h4 { font-size: 11px; margin-bottom: 2px; color: var(--accent); }
+    .schematic-info p  { font-size: 10px; color: var(--text-dim); line-height: 1.4; }
+
+    /* ─── Glitch healing panel ─────────────────────────────────────────── */
+    .heal-panel {
+      background: #04070f;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+    }
+    .heal-target {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .glitch-id {
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--red);
+      text-shadow: 0 0 10px var(--red);
+      letter-spacing: 2px;
+    }
+    .glitch-meta { font-size: 10px; color: var(--text-dim); line-height: 1.6; }
+    .progress-steps {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .step {
+      flex: 1;
+      min-width: 80px;
+      padding: 6px 4px;
+      text-align: center;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 9px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all .3s;
+    }
+    .step.done    { border-color: var(--green);  color: var(--green);  background: rgba(0,255,153,.08); }
+    .step.active  { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,.08);
+                    animation: step-glow .8s ease-in-out infinite alternate; }
+    .step.pending { color: var(--text-dim); }
+
+    /* ─── Keyframes ────────────────────────────────────────────────────── */
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .2; }
+    }
+    @keyframes step-glow {
+      from { box-shadow: none; }
+      to   { box-shadow: 0 0 8px var(--accent); }
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    /* ─── Responsive tweaks ────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: 56px auto auto auto;
+      }
+      .sidebar-left, .sidebar-right { border: none; border-bottom: 1px solid var(--border); }
+      .flow-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Top bar ─────────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <span class="logo">≋</span>
+    <span class="title">Gitflow</span>
+    <span class="subtitle">QUANTUM RHYTHM ENGINE · GIRO BRAIN v2.4.1</span>
+    <span class="clock" id="clock">--:--:--</span>
+    <div id="status-pill">
+      <div class="pulse-dot"></div>
+      STREAMLINER ONLINE
+    </div>
+  </header>
+
+  <!-- ── Left sidebar — GP Suite ─────────────────────────────────────── -->
+  <aside class="sidebar-left">
+    <h2>GP Suite</h2>
+
+    <div class="ai-card active" data-ai="gitflow" onclick="selectAI('gitflow')">
+      <div class="ai-header">
+        <span class="ai-symbol">≋</span>
+        <span class="ai-name">GITFLOW</span>
+      </div>
+      <div class="ai-role">Manages momentum of the inertia pool. Ensures smooth transitions when cloning or forking a world.</div>
+      <span class="ai-badge badge-online">● Online</span>
+    </div>
+
+    <div class="ai-card" data-ai="gitpulse" onclick="selectAI('gitpulse')">
+      <div class="ai-header">
+        <span class="ai-symbol">♥</span>
+        <span class="ai-name">GITPULSE</span>
+      </div>
+      <div class="ai-role">Monitors Erythmia. Flags off-beats in spatial code before they become full-blown glitches.</div>
+      <span class="ai-badge badge-online">● Online</span>
+    </div>
+
+    <div class="ai-card" data-ai="gitarch" onclick="selectAI('gitarch')">
+      <div class="ai-header">
+        <span class="ai-symbol">🏛</span>
+        <span class="ai-name">GITARCH</span>
+      </div>
+      <div class="ai-role">Handles the foundation of the repo — the actual physics laws of the cloned world.</div>
+      <span class="ai-badge badge-standby">◌ Standby</span>
+    </div>
+
+    <div class="ai-card" data-ai="gitsync" onclick="selectAI('gitsync')">
+      <div class="ai-header">
+        <span class="ai-symbol">⟲</span>
+        <span class="ai-name">GITSYNC</span>
+      </div>
+      <div class="ai-role">Re-integrates patched rhythms back into main existence. Prevents Giro healing rejection.</div>
+      <span class="ai-badge badge-online">● Online</span>
+    </div>
+
+    <div class="ai-card" data-ai="gitscan" onclick="selectAI('gitscan')">
+      <div class="ai-header">
+        <span class="ai-symbol">◈</span>
+        <span class="ai-name">GITSCAN</span>
+      </div>
+      <div class="ai-role">Scans the cauldron of everything for external inertia forces interfering with local spatial pool.</div>
+      <span class="ai-badge badge-scan">⟳ Scanning</span>
+    </div>
+  </aside>
+
+  <!-- ── Main canvas ──────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Giro Brain -->
+    <div>
+      <div class="section-title">Giro Brain · Quantum Rhythm Engine</div>
+      <div id="giro-canvas-wrap">
+        <canvas id="giro-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- World-Glitch Healing Panel -->
+    <div class="heal-panel">
+      <div class="section-title">Active Healing Sequence</div>
+      <div class="heal-target">
+        <span class="glitch-id" id="glitch-id">GLT-0000</span>
+        <div class="glitch-meta">
+          <div id="glitch-type">Type: Rhythm Shock · Source: Fork Event</div>
+          <div id="glitch-coords">Coords: Ω[4.21, -1.87, 9.03]</div>
+        </div>
+      </div>
+      <div class="progress-steps" id="heal-steps">
+        <div class="step done"   id="step-scan">◈ SCAN</div>
+        <div class="step done"   id="step-diag">♥ DIAGNOSE</div>
+        <div class="step active" id="step-flow">≋ STREAMLINE</div>
+        <div class="step pending" id="step-arch">🏛 RESTRUCTURE</div>
+        <div class="step pending" id="step-sync">⟲ SYNC</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn success" onclick="startHeal()">▶ INITIATE HEAL</button>
+        <button class="btn" onclick="injectGlitch()">⚡ INJECT GLITCH</button>
+        <button class="btn danger" onclick="resetHeal()">↺ RESET</button>
+      </div>
+    </div>
+
+    <!-- Flow controls row -->
+    <div class="flow-row">
+
+      <!-- Inertia sine wave -->
+      <div class="panel-box">
+        <div class="section-title">Inertia Pool · Sine Wave (≋)</div>
+        <canvas id="wave-canvas" height="80"></canvas>
+        <div style="margin-top:8px; font-size:10px; color:var(--text-dim);">
+          Amplitude: <span id="wave-amp" style="color:var(--accent)">1.00</span>&nbsp;
+          Frequency: <span id="wave-freq" style="color:var(--accent)">1.00</span> Hz&nbsp;
+          Phase: <span id="wave-phase" style="color:var(--accent)">0.00</span> rad
+        </div>
+      </div>
+
+      <!-- Momentum meters -->
+      <div class="panel-box">
+        <div class="section-title">Momentum Metrics</div>
+        <div class="meter-row">
+          <div class="meter-label">Inertia Pool</div>
+          <div class="meter-bar"><div class="meter-fill accent" id="m-inertia" style="width:78%"></div></div>
+          <div class="meter-val" id="v-inertia">78%</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-label">Rhythm Sync</div>
+          <div class="meter-bar"><div class="meter-fill green" id="m-rhythm" style="width:91%"></div></div>
+          <div class="meter-val" id="v-rhythm">91%</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-label">Erythmia</div>
+          <div class="meter-bar"><div class="meter-fill amber" id="m-erythmia" style="width:34%"></div></div>
+          <div class="meter-val" id="v-erythmia">34%</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-label">Spatial Warp</div>
+          <div class="meter-bar"><div class="meter-fill accent2" id="m-warp" style="width:12%"></div></div>
+          <div class="meter-val" id="v-warp">12%</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── Right sidebar — Events & Schematic ──────────────────────────── -->
+  <aside class="sidebar-right">
+
+    <div>
+      <div class="section-title">Event Stream</div>
+      <ul id="event-log">
+        <li class="ok">[BOOT] Giro Brain initialized</li>
+        <li class="info">[SCAN] ◈ Gitscan sweep started</li>
+        <li class="info">[PULSE] ♥ Erythmia baseline locked</li>
+        <li class="warn">[WARN] Off-beat detected in Ω[4.21, -1.87]</li>
+        <li class="error">[GLITCH] Rhythm shock · GLT-0000 flagged</li>
+        <li class="info">[FLOW] ≋ Gitflow activating streamliner</li>
+      </ul>
+    </div>
+
+    <div>
+      <div class="section-title">Giro Brain Schematic</div>
+
+      <div class="schematic-item">
+        <div class="schematic-icon">⊙</div>
+        <div class="schematic-info">
+          <h4>Centrifugal Core</h4>
+          <p>Spinning ring — the Giro itself. Generates the operational symptomatic regulator field.</p>
+        </div>
+      </div>
+
+      <div class="schematic-item">
+        <div class="schematic-icon">∆</div>
+        <div class="schematic-info">
+          <h4>Vector Triangulation Array</h4>
+          <p>Gitpin (∆) sensors mapping the spatial nature of the Erythmia across all forks.</p>
+        </div>
+      </div>
+
+      <div class="schematic-item">
+        <div class="schematic-icon">⫷</div>
+        <div class="schematic-info">
+          <h4>Inertia Dampeners</h4>
+          <p>External fins stabilizing the pool so the healer can work without cosmic momentum disruption.</p>
+        </div>
+      </div>
+
+      <div class="schematic-item">
+        <div class="schematic-icon">📡</div>
+        <div class="schematic-info">
+          <h4>Repo-Link Port</h4>
+          <p>Gitpub (📡) signal connection to the live stream of the world.</p>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+</div><!-- .shell -->
+
+<script>
+/* ================================================================
+   GITFLOW ≋ — The Streamliner AI
+   Dashboard runtime — all vanilla JS / Canvas
+   ================================================================ */
+
+// ── Clock ────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-GB', { hour12: false });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── AI card selection ─────────────────────────────────────────────
+function selectAI(name) {
+  document.querySelectorAll('.ai-card').forEach(c => c.classList.remove('active'));
+  const card = document.querySelector('[data-ai="' + name + '"]');
+  if (card) card.classList.add('active');
+  addEvent('info', '[SELECT] ' + name.toUpperCase() + ' brought into focus');
+}
+
+// ── Event log ─────────────────────────────────────────────────────
+const MAX_LOG = 30;
+function addEvent(type, msg) {
+  const log = document.getElementById('event-log');
+  const li  = document.createElement('li');
+  li.className = type;
+  li.textContent = msg;
+  log.prepend(li);
+  while (log.children.length > MAX_LOG) log.removeChild(log.lastChild);
+}
+
+// ── Giro Brain Canvas ─────────────────────────────────────────────
+const giroCanvas = document.getElementById('giro-canvas');
+const gCtx = giroCanvas.getContext('2d');
+let giroTime = 0;
+
+function resizeGiroCanvas() {
+  const wrap = document.getElementById('giro-canvas-wrap');
+  giroCanvas.width  = wrap.clientWidth;
+  giroCanvas.height = wrap.clientHeight;
+}
+resizeGiroCanvas();
+window.addEventListener('resize', resizeGiroCanvas);
+
+function drawGiro(ts) {
+  giroTime = ts * 0.001;
+  const W = giroCanvas.width, H = giroCanvas.height;
+  const cx = W / 2, cy = H / 2;
+
+  gCtx.clearRect(0, 0, W, H);
+
+  // Background grid
+  gCtx.strokeStyle = 'rgba(0,212,255,0.04)';
+  gCtx.lineWidth = 1;
+  for (let x = 0; x < W; x += 32) {
+    gCtx.beginPath(); gCtx.moveTo(x, 0); gCtx.lineTo(x, H); gCtx.stroke();
+  }
+  for (let y = 0; y < H; y += 32) {
+    gCtx.beginPath(); gCtx.moveTo(0, y); gCtx.lineTo(W, y); gCtx.stroke();
+  }
+
+  // Inertia Dampener fins (4 outer arcs)
+  const dampR = Math.min(W, H) * 0.44;
+  for (let i = 0; i < 4; i++) {
+    const ang = (i / 4) * Math.PI * 2 + giroTime * 0.08;
+    gCtx.beginPath();
+    gCtx.arc(cx, cy, dampR, ang, ang + Math.PI * 0.28);
+    gCtx.strokeStyle = 'rgba(0,212,255,0.18)';
+    gCtx.lineWidth = 6;
+    gCtx.stroke();
+  }
+
+  // Centrifugal Core — spinning double ring
+  const r1 = Math.min(W, H) * 0.35;
+  const r2 = Math.min(W, H) * 0.28;
+  const angle1 =  giroTime * 0.4;
+  const angle2 = -giroTime * 0.6;
+
+  // Outer ring
+  gCtx.beginPath();
+  gCtx.arc(cx, cy, r1, 0, Math.PI * 2);
+  gCtx.strokeStyle = 'rgba(0,212,255,0.25)';
+  gCtx.lineWidth = 1.5;
+  gCtx.stroke();
+
+  // Spinning arc on outer ring
+  gCtx.beginPath();
+  gCtx.arc(cx, cy, r1, angle1, angle1 + Math.PI * 0.6);
+  gCtx.strokeStyle = '#00d4ff';
+  gCtx.lineWidth = 2.5;
+  gCtx.shadowColor = '#00d4ff';
+  gCtx.shadowBlur = 14;
+  gCtx.stroke();
+  gCtx.shadowBlur = 0;
+
+  // Inner ring
+  gCtx.beginPath();
+  gCtx.arc(cx, cy, r2, 0, Math.PI * 2);
+  gCtx.strokeStyle = 'rgba(123,47,255,0.25)';
+  gCtx.lineWidth = 1.5;
+  gCtx.stroke();
+
+  // Spinning arc on inner ring (reverse)
+  gCtx.beginPath();
+  gCtx.arc(cx, cy, r2, angle2, angle2 + Math.PI * 0.45);
+  gCtx.strokeStyle = '#7b2fff';
+  gCtx.lineWidth = 2;
+  gCtx.shadowColor = '#7b2fff';
+  gCtx.shadowBlur = 10;
+  gCtx.stroke();
+  gCtx.shadowBlur = 0;
+
+  // Vector Triangulation Array — 6 Gitpin ∆ nodes orbiting
+  const nodeR = Math.min(W, H) * 0.31;
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + giroTime * 0.18;
+    const nx = cx + Math.cos(a) * nodeR;
+    const ny = cy + Math.sin(a) * nodeR;
+
+    // Node circle
+    gCtx.beginPath();
+    gCtx.arc(nx, ny, 5, 0, Math.PI * 2);
+    const pulse = (Math.sin(giroTime * 2 + i) + 1) / 2;
+    gCtx.fillStyle = `rgba(0,255,153,${0.4 + pulse * 0.6})`;
+    gCtx.shadowColor = '#00ff99';
+    gCtx.shadowBlur = 6 + pulse * 6;
+    gCtx.fill();
+    gCtx.shadowBlur = 0;
+
+    // Triangle symbol
+    gCtx.fillStyle = 'rgba(0,255,153,0.7)';
+    gCtx.font = '9px Courier New';
+    gCtx.fillText('∆', nx - 4, ny - 8);
+
+    // Line to centre
+    gCtx.beginPath();
+    gCtx.moveTo(cx, cy);
+    gCtx.lineTo(nx, ny);
+    gCtx.strokeStyle = `rgba(0,255,153,${0.05 + pulse * 0.1})`;
+    gCtx.lineWidth = 1;
+    gCtx.stroke();
+  }
+
+  // Repo-Link Port — central 📡 indicator
+  const coreR = 18;
+  gCtx.beginPath();
+  gCtx.arc(cx, cy, coreR, 0, Math.PI * 2);
+  const corePulse = (Math.sin(giroTime * 1.5) + 1) / 2;
+  gCtx.fillStyle = `rgba(0,212,255,${0.15 + corePulse * 0.25})`;
+  gCtx.fill();
+  gCtx.strokeStyle = '#00d4ff';
+  gCtx.lineWidth = 1.5;
+  gCtx.stroke();
+
+  gCtx.fillStyle = '#00d4ff';
+  gCtx.font = '14px serif';
+  gCtx.textAlign = 'center';
+  gCtx.textBaseline = 'middle';
+  gCtx.fillText('📡', cx, cy);
+  gCtx.textAlign = 'left';
+  gCtx.textBaseline = 'alphabetic';
+
+  // Label
+  gCtx.fillStyle = 'rgba(0,212,255,0.5)';
+  gCtx.font = '9px Courier New';
+  gCtx.textAlign = 'center';
+  gCtx.fillText('GIRO CORE', cx, cy + 30);
+  gCtx.textAlign = 'left';
+
+  requestAnimationFrame(drawGiro);
+}
+requestAnimationFrame(drawGiro);
+
+// ── Sine Wave canvas (inertia pool) ───────────────────────────────
+const waveCanvas = document.getElementById('wave-canvas');
+const wCtx = waveCanvas.getContext('2d');
+let waveTime = 0;
+let waveAmplitude = 1.0;
+let waveFrequency = 1.0;
+
+function resizeWaveCanvas() {
+  waveCanvas.width = waveCanvas.parentElement.clientWidth - 28;
+}
+resizeWaveCanvas();
+window.addEventListener('resize', resizeWaveCanvas);
+
+function drawWave(ts) {
+  waveTime = ts * 0.001;
+  const W = waveCanvas.width, H = waveCanvas.height;
+  wCtx.clearRect(0, 0, W, H);
+
+  // Grid
+  wCtx.strokeStyle = 'rgba(0,212,255,0.05)';
+  wCtx.lineWidth = 1;
+  wCtx.beginPath(); wCtx.moveTo(0, H / 2); wCtx.lineTo(W, H / 2); wCtx.stroke();
+
+  // Main wave (≋)
+  const amp  = (H / 2 - 8) * waveAmplitude;
+  const freq = waveFrequency;
+  wCtx.beginPath();
+  for (let x = 0; x <= W; x++) {
+    const t = (x / W) * Math.PI * 2 * 3 * freq - waveTime * 2;
+    const y = H / 2 + Math.sin(t) * amp;
+    x === 0 ? wCtx.moveTo(x, y) : wCtx.lineTo(x, y);
+  }
+  wCtx.strokeStyle = '#00d4ff';
+  wCtx.lineWidth = 2;
+  wCtx.shadowColor = '#00d4ff';
+  wCtx.shadowBlur = 8;
+  wCtx.stroke();
+  wCtx.shadowBlur = 0;
+
+  // Secondary harmonic (dampened)
+  wCtx.beginPath();
+  for (let x = 0; x <= W; x++) {
+    const t = (x / W) * Math.PI * 2 * 5 * freq - waveTime * 3.1;
+    const y = H / 2 + Math.sin(t) * amp * 0.3;
+    x === 0 ? wCtx.moveTo(x, y) : wCtx.lineTo(x, y);
+  }
+  wCtx.strokeStyle = 'rgba(123,47,255,0.55)';
+  wCtx.lineWidth = 1.2;
+  wCtx.stroke();
+
+  // Update labels
+  document.getElementById('wave-amp').textContent   = waveAmplitude.toFixed(2);
+  document.getElementById('wave-freq').textContent  = waveFrequency.toFixed(2);
+  document.getElementById('wave-phase').textContent = ((waveTime * 2) % (Math.PI * 2)).toFixed(2);
+
+  requestAnimationFrame(drawWave);
+}
+requestAnimationFrame(drawWave);
+
+// ── Momentum meters auto-fluctuation ─────────────────────────────
+const meters = [
+  { fill: 'm-inertia',  val: 'v-inertia',  base: 78, spread: 12, cls: 'accent'  },
+  { fill: 'm-rhythm',   val: 'v-rhythm',   base: 91, spread:  6, cls: 'green'   },
+  { fill: 'm-erythmia', val: 'v-erythmia', base: 34, spread: 18, cls: 'amber'   },
+  { fill: 'm-warp',     val: 'v-warp',     base: 12, spread:  8, cls: 'accent2' },
+];
+let meterPhase = 0;
+function updateMeters() {
+  meterPhase += 0.04;
+  meters.forEach((m, i) => {
+    const v = Math.max(2, Math.min(99,
+      m.base + Math.sin(meterPhase + i * 1.3) * m.spread));
+    const vr = Math.round(v);
+    document.getElementById(m.fill).style.width = vr + '%';
+    document.getElementById(m.val).textContent  = vr + '%';
+  });
+}
+setInterval(updateMeters, 250);
+
+// ── Healing sequence ──────────────────────────────────────────────
+const STEPS = ['step-scan', 'step-diag', 'step-flow', 'step-arch', 'step-sync'];
+let healIndex = 2; // 0-based current step (scan & diag pre-done)
+let healTimer = null;
+
+function setStepState(idx, state) {
+  const el = document.getElementById(STEPS[idx]);
+  if (!el) return;
+  el.className = 'step ' + state;
+}
+
+function advanceHeal() {
+  if (healIndex >= STEPS.length) {
+    addEvent('ok', '[HEAL] ✓ Glitch ' + document.getElementById('glitch-id').textContent + ' resolved');
+    clearInterval(healTimer);
+    healTimer = null;
+    // Increase wave amplitude briefly to show "relief"
+    waveAmplitude = 0.4;
+    waveFrequency = 0.7;
+    setTimeout(() => { waveAmplitude = 1.0; waveFrequency = 1.0; }, 3000);
+    return;
+  }
+  setStepState(healIndex - 1, 'done');
+  setStepState(healIndex, 'active');
+  const stepNames = ['scanning', 'diagnosing', 'streamlining', 'restructuring', 'syncing'];
+  addEvent('info', '[HEAL] Step ' + (healIndex + 1) + '/5 — ' + stepNames[healIndex]);
+  healIndex++;
+}
+
+function startHeal() {
+  if (healTimer) return;
+  if (healIndex >= STEPS.length) resetHeal();
+  healTimer = setInterval(advanceHeal, 1600);
+  addEvent('ok', '[FLOW] ≋ Heal sequence initiated for ' + document.getElementById('glitch-id').textContent);
+}
+
+function resetHeal() {
+  clearInterval(healTimer);
+  healTimer = null;
+  healIndex = 2;
+  STEPS.forEach((_, i) => setStepState(i, i < 2 ? 'done' : (i === 2 ? 'active' : 'pending')));
+  addEvent('warn', '[RESET] Healing sequence reset');
+  waveAmplitude = 1.0;
+  waveFrequency = 1.0;
+}
+
+function injectGlitch() {
+  const ids = ['GLT-' + String(Math.floor(Math.random() * 9999)).padStart(4, '0')];
+  const types = [
+    'Type: Rhythm Shock · Source: Fork Event',
+    'Type: Inertia Overflow · Source: Clone Cascade',
+    'Type: Phase Desync · Source: Parallel Branch',
+    'Type: Erythmia Spike · Source: Merge Conflict',
+  ];
+  const coords = [
+    'Coords: Ω[' + (Math.random() * 10 - 5).toFixed(2) + ', ' +
+                    (Math.random() * 10 - 5).toFixed(2) + ', ' +
+                    (Math.random() * 10).toFixed(2) + ']',
+  ];
+  document.getElementById('glitch-id').textContent   = ids[0];
+  document.getElementById('glitch-type').textContent = types[Math.floor(Math.random() * types.length)];
+  document.getElementById('glitch-coords').textContent = coords[0];
+  resetHeal();
+  healIndex = 0;
+  STEPS.forEach((_, i) => setStepState(i, 'pending'));
+  addEvent('error', '[GLITCH] New glitch injected: ' + ids[0]);
+  waveAmplitude = 1.8;
+  waveFrequency = 2.4;
+  setTimeout(() => { waveAmplitude = 1.0; waveFrequency = 1.0; }, 2000);
+}
+
+// ── Periodic auto-events ──────────────────────────────────────────
+const autoEvents = [
+  ['info',  '[SCAN] ◈ Sector sweep complete — 0 new threats'],
+  ['info',  '[PULSE] ♥ Erythmia within nominal range'],
+  ['info',  '[FLOW] ≋ Inertia pool pressure: nominal'],
+  ['info',  '[SYNC] ⟲ Rhythm patch queued for main existence'],
+  ['warn',  '[WARN] Micro-turbulence in inertia pool detected'],
+  ['info',  '[ARCH] 🏛 Physics constants verified'],
+  ['ok',    '[REPO] 📡 Gitpub signal stable · 42 ms latency'],
+  ['info',  '[FLOW] ≋ Streamliner dampeners engaged'],
+];
+let autoIdx = 0;
+setInterval(() => {
+  const ev = autoEvents[autoIdx % autoEvents.length];
+  addEvent(ev[0], ev[1]);
+  autoIdx++;
+}, 3500);
+</script>
+</body>
+</html>
