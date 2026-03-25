@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gitflow ≋ — Quantum Rhythm Engine</title>
+  <style>
+    /* ── Reset ───────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #030810;
+      --panel:    #070f1e;
+      --border:   #0e2a45;
+      --accent:   #00d4ff;
+      --accent2:  #7b2fff;
+      --green:    #00ff99;
+      --amber:    #ffb800;
+      --red:      #ff3060;
+      --text:     #b8d8f0;
+      --dim:      #3a6080;
+      --glow-c:   0 0 14px var(--accent);
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text);
+      font-family: 'Courier New', Courier, monospace; font-size: 12px;
+      overflow: hidden; }
+
+    /* scanline overlay */
+    body::before { content: ''; pointer-events: none; position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 3px,
+        rgba(0,212,255,.025) 3px, rgba(0,212,255,.025) 4px); z-index: 9999; }
+
+    /* ── Shell grid ──────────────────────────────────────────────────── */
+    .shell {
+      display: grid;
+      grid-template-rows: 48px 1fr 170px;
+      grid-template-columns: 268px 1fr 268px;
+      height: 100vh;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────── */
+    .hdr {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 18px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+    .hdr-logo { font-size: 24px; color: var(--accent); text-shadow: var(--glow-c);
+      animation: waveBreath 3s ease-in-out infinite; }
+    .hdr-title { font-size: 15px; letter-spacing: 4px; text-transform: uppercase; }
+    .hdr-sub { color: var(--dim); font-size: 10px; letter-spacing: 2px; }
+    .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    #hdr-clock { font-size: 11px; color: var(--accent); letter-spacing: 2px; }
+    .status-pill { display: flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 20px; border: 1px solid;
+      font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+      transition: all .4s; }
+    .status-pill.ok    { border-color: var(--green);  color: var(--green); }
+    .status-pill.warn  { border-color: var(--amber);  color: var(--amber); }
+    .status-pill.error { border-color: var(--red);    color: var(--red); animation: redPulse 1s infinite; }
+    .status-pill.buffer{ border-color: var(--accent2);color: var(--accent2); }
+    .blink-dot { width: 7px; height: 7px; border-radius: 50%;
+      background: currentColor; animation: blink 1.1s infinite; }
+
+    /* ── Left pane ───────────────────────────────────────────────────── */
+    .pane-left {
+      grid-row: 2; grid-column: 1;
+      display: flex; flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    /* ── Center ──────────────────────────────────────────────────────── */
+    .pane-center {
+      grid-row: 2; grid-column: 2;
+      display: flex; flex-direction: column;
+      background: #020609;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ── Right pane ──────────────────────────────────────────────────── */
+    .pane-right {
+      grid-row: 2; grid-column: 3;
+      display: flex; flex-direction: column;
+      border-left: 1px solid var(--border);
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    /* ── Terminal ────────────────────────────────────────────────────── */
+    .pane-terminal {
+      grid-column: 1 / -1; grid-row: 3;
+      background: #020609;
+      border-top: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Section header (reused) ─────────────────────────────────────── */
+    .sec-hdr {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,.3);
+      flex-shrink: 0;
+    }
+    .sec-hdr .sym  { font-size: 14px; }
+    .sec-hdr .name { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; }
+    .sec-hdr .badge {
+      margin-left: auto; font-size: 9px; padding: 2px 7px;
+      border-radius: 3px; letter-spacing: 1px; text-transform: uppercase; }
+    .badge-ok     { background: rgba(0,255,153,.12); color: var(--green); border: 1px solid var(--green); }
+    .badge-warn   { background: rgba(255,184,0,.1);  color: var(--amber); border: 1px solid var(--amber); }
+    .badge-err    { background: rgba(255,48,96,.12); color: var(--red);   border: 1px solid var(--red); }
+    .badge-scan   { background: rgba(123,47,255,.12);color: var(--accent2);border: 1px solid var(--accent2); }
+    .badge-info   { background: rgba(0,212,255,.1);  color: var(--accent);border: 1px solid var(--accent); }
+
+    /* ── Canvas wrappers ─────────────────────────────────────────────── */
+    .canvas-wrap { flex: 1; position: relative; overflow: hidden; }
+    .canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    /* ── Center overlay labels ───────────────────────────────────────── */
+    .core-label {
+      position: absolute; top: 10px; left: 12px;
+      font-size: 9px; letter-spacing: 2px; color: var(--dim);
+      text-transform: uppercase; pointer-events: none;
+    }
+    .core-state {
+      position: absolute; top: 10px; right: 12px;
+      font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+      pointer-events: none; transition: color .4s;
+    }
+
+    /* Momentum Buffer overlay */
+    #buffer-overlay {
+      position: absolute; inset: 0;
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; gap: 8px;
+      background: rgba(123,47,255,.08);
+      border: 2px solid rgba(123,47,255,.4);
+      pointer-events: none;
+    }
+    #buffer-overlay .buf-title {
+      font-size: 13px; letter-spacing: 4px; color: var(--accent2);
+      text-shadow: 0 0 12px var(--accent2); text-transform: uppercase; }
+    #buffer-overlay .buf-sub { font-size: 10px; color: var(--dim); letter-spacing: 2px; }
+
+    /* ── Action bar (center bottom) ──────────────────────────────────── */
+    .action-bar {
+      flex-shrink: 0;
+      display: flex; gap: 8px; padding: 8px 12px;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 5px 13px;
+      border: 1px solid var(--accent); background: transparent;
+      color: var(--accent); font-family: inherit; font-size: 10px;
+      letter-spacing: 1px; cursor: pointer; border-radius: 3px;
+      text-transform: uppercase; transition: all .2s;
+    }
+    .btn:hover  { background: rgba(0,212,255,.1); box-shadow: var(--glow-c); }
+    .btn:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; }
+    .btn.amber  { border-color: var(--amber); color: var(--amber); }
+    .btn.amber:hover { background: rgba(255,184,0,.1); box-shadow: 0 0 10px var(--amber); }
+    .btn.violet { border-color: var(--accent2); color: var(--accent2); }
+    .btn.violet:hover { background: rgba(123,47,255,.12); box-shadow: 0 0 10px var(--accent2); }
+    .btn.green  { border-color: var(--green); color: var(--green); }
+    .btn.green:hover  { background: rgba(0,255,153,.1); box-shadow: 0 0 10px var(--green); }
+    .btn.red    { border-color: var(--red); color: var(--red); }
+    .btn.red:hover    { background: rgba(255,48,96,.1); box-shadow: 0 0 10px var(--red); }
+
+    /* ── Gitarch wireframe section ───────────────────────────────────── */
+    .law-list {
+      padding: 8px 12px;
+      flex-shrink: 0;
+    }
+    .law-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 0; border-bottom: 1px solid rgba(14,42,69,.6);
+      font-size: 10px; transition: all .3s;
+    }
+    .law-row:last-child { border-bottom: none; }
+    .law-name  { width: 88px; color: var(--dim); }
+    .law-val   { flex: 1; font-size: 9px; letter-spacing: 1px; }
+    .law-state { font-size: 9px; padding: 1px 6px; border-radius: 2px; }
+    .law-state.stable  { color: var(--green); border: 1px solid rgba(0,255,153,.3); }
+    .law-state.anomaly { color: var(--red);   border: 1px solid rgba(255,48,96,.4);
+      animation: redPulse 1s infinite; }
+    .law-state.patched { color: var(--amber); border: 1px solid rgba(255,184,0,.3); }
+
+    /* ── Gitsync progress ────────────────────────────────────────────── */
+    .sync-section {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sync-body {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 8px; padding: 10px;
+    }
+    #sync-canvas-wrap { position: relative; width: 130px; height: 130px; }
+    #sync-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .sync-pct {
+      position: absolute; inset: 0; display: flex; align-items: center;
+      justify-content: center; flex-direction: column;
+    }
+    .sync-pct .pct-num { font-size: 24px; color: var(--green); letter-spacing: 2px; }
+    .sync-pct .pct-lbl { font-size: 9px; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; }
+    .sync-status { font-size: 10px; color: var(--dim); letter-spacing: 2px;
+      text-transform: uppercase; text-align: center; }
+
+    /* ── Terminal ────────────────────────────────────────────────────── */
+    #terminal-lines {
+      flex: 1; overflow-y: auto; padding: 6px 12px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    #terminal-lines::-webkit-scrollbar { width: 4px; }
+    #terminal-lines::-webkit-scrollbar-track { background: transparent; }
+    #terminal-lines::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .tline { font-size: 10px; line-height: 1.5; white-space: pre; letter-spacing: .5px; }
+    .tline.ok    { color: var(--green); }
+    .tline.info  { color: var(--accent); }
+    .tline.warn  { color: var(--amber); }
+    .tline.error { color: var(--red); }
+    .tline.dim   { color: var(--dim); }
+    .tline.cursor::after { content: '█'; animation: blink .8s step-end infinite; }
+
+    /* ── Keyframes ───────────────────────────────────────────────────── */
+    @keyframes blink     { 0%,100% { opacity:1 } 50% { opacity:0 } }
+    @keyframes waveBreath{ 0%,100% { text-shadow: 0 0 8px var(--accent) }
+                           50%     { text-shadow: 0 0 24px var(--accent), 0 0 40px var(--accent) } }
+    @keyframes redPulse  { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+
+    /* ── Responsive ──────────────────────────────────────────────────── */
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: 1fr; grid-template-rows: 48px repeat(4,auto) 140px; overflow-y: auto; }
+      .pane-left, .pane-center, .pane-right { height: 340px; }
+      body, html { overflow-y: auto; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ══════════════ HEADER ════════════════════════════════════════════ -->
+  <header class="hdr">
+    <span class="hdr-logo">≋</span>
+    <div>
+      <div class="hdr-title">Gitflow</div>
+      <div class="hdr-sub">Quantum Rhythm Engine · Giro Brain v3.0</div>
+    </div>
+    <div class="hdr-right">
+      <a href="game.html" style="padding:4px 12px;border:1px solid var(--amber);
+        color:var(--amber);font-size:10px;letter-spacing:2px;text-decoration:none;
+        text-transform:uppercase;border-radius:3px;transition:all .2s;"
+        onmouseover="this.style.background='rgba(255,184,0,.12)'"
+        onmouseout="this.style.background='transparent'">▶ RACE</a>
+      <span id="hdr-clock">--:--:--</span>
+      <div class="status-pill ok" id="sys-pill">
+        <div class="blink-dot"></div>
+        <span id="sys-pill-txt">NOMINAL</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════ LEFT PANE ═════════════════════════════════════════ -->
+  <aside class="pane-left">
+
+    <!-- Gitpulse ECG -->
+    <div class="sec-hdr">
+      <span class="sym">♥</span>
+      <span class="name">Gitpulse</span>
+      <span class="badge badge-ok" id="pulse-badge">ERYTHMIA OK</span>
+    </div>
+    <div class="canvas-wrap" style="flex:1">
+      <canvas id="ecg-canvas"></canvas>
+    </div>
+
+    <!-- Gitscan Radar -->
+    <div class="sec-hdr" style="border-top:1px solid var(--border)">
+      <span class="sym">◈</span>
+      <span class="name">Gitscan</span>
+      <span class="badge badge-scan" id="scan-badge">SWEEPING</span>
+    </div>
+    <div class="canvas-wrap" style="flex:1">
+      <canvas id="radar-canvas"></canvas>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════ CENTER ════════════════════════════════════════════ -->
+  <main class="pane-center">
+
+    <div class="canvas-wrap" style="flex:1; position:relative">
+      <canvas id="core-canvas"></canvas>
+      <div class="core-label">CENTRIFUGAL CORE · INERTIA POOL ≋</div>
+      <div class="core-state" id="core-state-lbl" style="color:var(--accent)">STREAMING</div>
+      <!-- Buffer overlay -->
+      <div id="buffer-overlay">
+        <div class="buf-title">⬡ MOMENTUM BUFFER ACTIVE ⬡</div>
+        <div class="buf-sub">Gitflow has frozen local inertia — patch window open</div>
+      </div>
+    </div>
+
+    <!-- Action bar -->
+    <div class="action-bar">
+      <button class="btn red"    id="btn-glitch"  onclick="injectGlitch()">⚡ INJECT GLITCH</button>
+      <button class="btn violet" id="btn-buffer"  onclick="createBuffer()" disabled>⬡ MOMENTUM BUFFER</button>
+      <button class="btn amber"  id="btn-patch"   onclick="applyPatch()"   disabled>🏛 APPLY PATCH</button>
+      <button class="btn green"  id="btn-sync"    onclick="startSync()"    disabled>⟲ HARMONIZE &amp; SYNC</button>
+      <button class="btn"        id="btn-reset"   onclick="resetAll()">↺ RESET</button>
+    </div>
+
+  </main>
+
+  <!-- ══════════════ RIGHT PANE ════════════════════════════════════════ -->
+  <aside class="pane-right">
+
+    <!-- Gitarch wireframe -->
+    <div class="sec-hdr">
+      <span class="sym">🏛</span>
+      <span class="name">Gitarch</span>
+      <span class="badge badge-ok" id="arch-badge">STABLE</span>
+    </div>
+    <div class="canvas-wrap" style="height:160px; flex:none">
+      <canvas id="arch-canvas"></canvas>
+    </div>
+    <div class="law-list" id="law-list">
+      <!-- populated by JS -->
+    </div>
+
+    <!-- Gitsync -->
+    <div class="sync-section" style="border-top:1px solid var(--border)">
+      <div class="sec-hdr">
+        <span class="sym">⟲</span>
+        <span class="name">Gitsync</span>
+        <span class="badge badge-info" id="sync-badge">IDLE</span>
+      </div>
+      <div class="sync-body">
+        <div id="sync-canvas-wrap">
+          <canvas id="sync-canvas" width="130" height="130"></canvas>
+          <div class="sync-pct">
+            <span class="pct-num" id="sync-pct-num">0%</span>
+            <span class="pct-lbl">MATCH</span>
+          </div>
+        </div>
+        <div class="sync-status" id="sync-status">Awaiting sync signal</div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════ TERMINAL ══════════════════════════════════════════ -->
+  <div class="pane-terminal">
+    <div class="sec-hdr">
+      <span class="sym">📡</span>
+      <span class="name">Gitpub · Repo-Link Stream</span>
+      <span class="badge badge-ok" id="term-badge">LIVE</span>
+    </div>
+    <div id="terminal-lines"></div>
+  </div>
+
+</div><!-- .shell -->
+
+<!-- ════════════════════════ SCRIPT ══════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════
+   STATE MACHINE
+   States: NOMINAL → GLITCH → BUFFERED → PATCHING → SYNCING → HEALED
+   ═══════════════════════════════════════════════════════════ */
+const S = {
+  NOMINAL:   'NOMINAL',
+  GLITCH:    'GLITCH',
+  BUFFERED:  'BUFFERED',
+  PATCHING:  'PATCHING',
+  SYNCING:   'SYNCING',
+  HEALED:    'HEALED',
+};
+let state = S.NOMINAL;
+
+/* active glitch data */
+let glitch = null;
+let syncProgress   = 0;   // 0-100
+let syncTarget     = 0;
+let patchedLawIdx  = -1;  // which physics law was patched
+
+/* ── Physics laws (Gitarch) ─────────────────────────────── */
+const LAWS = [
+  { name: 'Gravity',     val: '9.81 m/s²',          key: 'gravity'    },
+  { name: 'Light Speed', val: '2.998×10⁸ m/s',      key: 'lightspeed' },
+  { name: 'Entropy',     val: 'ΔS ≥ 0',              key: 'entropy'    },
+  { name: 'Planck',      val: '6.626×10⁻³⁴ J·s',    key: 'planck'     },
+  { name: 'Lorentz',     val: 'γ = 1/√(1−v²/c²)',   key: 'lorentz'    },
+];
+let lawStates = LAWS.map(() => 'stable'); // 'stable' | 'anomaly' | 'patched'
+
+function renderLaws() {
+  const el = document.getElementById('law-list');
+  el.innerHTML = LAWS.map((l, i) => `
+    <div class="law-row" id="law-row-${i}">
+      <div class="law-name">${l.name}</div>
+      <div class="law-val">${l.val}</div>
+      <div class="law-state ${lawStates[i]}">${lawStates[i].toUpperCase()}</div>
+    </div>`).join('');
+}
+renderLaws();
+
+/* ── Clock ──────────────────────────────────────────────── */
+function tick() {
+  document.getElementById('hdr-clock').textContent =
+    new Date().toLocaleTimeString('en-GB', { hour12: false });
+}
+tick(); setInterval(tick, 1000);
+
+/* ═══════════════════════════════════════════════════════════
+   BUTTON LOGIC
+   ═══════════════════════════════════════════════════════════ */
+function setBtn(id, enabled) {
+  document.getElementById(id).disabled = !enabled;
+}
+
+function updateButtons() {
+  setBtn('btn-glitch',  state === S.NOMINAL || state === S.HEALED);
+  setBtn('btn-buffer',  state === S.GLITCH);
+  setBtn('btn-patch',   state === S.BUFFERED);
+  setBtn('btn-sync',    state === S.PATCHING);
+  setBtn('btn-reset',   true);
+}
+updateButtons();
+
+/* ── Status pill ────────────────────────────────────────── */
+function setPill(cls, txt) {
+  const p = document.getElementById('sys-pill');
+  p.className = 'status-pill ' + cls;
+  document.getElementById('sys-pill-txt').textContent = txt;
+}
+
+/* ── Core state label ───────────────────────────────────── */
+const coreLbl = document.getElementById('core-state-lbl');
+function setCoreState(txt, color) {
+  coreLbl.textContent = txt;
+  coreLbl.style.color = color;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ACTIONS
+   ═══════════════════════════════════════════════════════════ */
+const GLITCH_TYPES = [
+  'Rhythm Shock — Fork Event',
+  'Inertia Overflow — Clone Cascade',
+  'Phase Desync — Parallel Branch Merge',
+  'Erythmia Spike — Conflict Burst',
+];
+const LAW_ANOMALIES = [0, 2, 3]; // gravity, entropy, planck can go anomalous
+
+function injectGlitch() {
+  const typeIdx = Math.floor(Math.random() * GLITCH_TYPES.length);
+  const lawIdx  = LAW_ANOMALIES[Math.floor(Math.random() * LAW_ANOMALIES.length)];
+  glitch = {
+    id:   'GLT-' + String(Math.floor(Math.random() * 10000)).padStart(4, '0'),
+    type: GLITCH_TYPES[typeIdx],
+    law:  lawIdx,
+    coords: `Ω[${(Math.random()*10-5).toFixed(2)}, ${(Math.random()*10-5).toFixed(2)}, ${(Math.random()*10).toFixed(2)}]`,
+  };
+  state = S.GLITCH;
+  lawStates = LAWS.map(() => 'stable');
+  lawStates[lawIdx] = 'anomaly';
+  patchedLawIdx = -1;
+  syncProgress = 0; syncTarget = 0;
+  renderLaws();
+  setPill('error', 'RHYTHM SHOCK');
+  setCoreState('RHYTHM SHOCK', 'var(--red)');
+  document.getElementById('buffer-overlay').style.display = 'none';
+  document.getElementById('arch-badge').className  = 'badge badge-err';
+  document.getElementById('arch-badge').textContent = 'ANOMALY';
+  document.getElementById('pulse-badge').className  = 'badge badge-err';
+  document.getElementById('pulse-badge').textContent = 'OFF-BEAT';
+  document.getElementById('scan-badge').className   = 'badge badge-err';
+  document.getElementById('scan-badge').textContent  = 'THREAT DETECTED';
+  document.getElementById('sync-badge').className   = 'badge badge-warn';
+  document.getElementById('sync-badge').textContent  = 'DESYNCED';
+  document.getElementById('sync-status').textContent = 'Erythmia desync detected';
+  updateButtons();
+  term('error', `[GLITCH] ${glitch.id} — ${glitch.type}`);
+  term('error', `[GLITCH] Anomaly in ${LAWS[lawIdx].name} · ${glitch.coords}`);
+  term('warn',  `[PULSE]  ♥ Off-beat detected — flagging for Gitflow`);
+  addRadarThreat();
+}
+
+function createBuffer() {
+  if (state !== S.GLITCH) return;
+  state = S.BUFFERED;
+  document.getElementById('buffer-overlay').style.display = 'flex';
+  setPill('buffer', 'BUFFER ACTIVE');
+  setCoreState('MOMENTUM BUFFER', 'var(--accent2)');
+  document.getElementById('scan-badge').className   = 'badge badge-info';
+  document.getElementById('scan-badge').textContent  = 'CONTAINED';
+  updateButtons();
+  term('info', '[FLOW]  ≋ Gitflow creating Momentum Buffer…');
+  term('ok',   '[FLOW]  ≋ Buffer established — local inertia frozen');
+  term('info', '[ARCH]  🏛 Patch window open — ' + LAWS[glitch.law].name + ' ready for edit');
+}
+
+function applyPatch() {
+  if (state !== S.BUFFERED) return;
+  state = S.PATCHING;
+  patchedLawIdx = glitch.law;
+  lawStates[patchedLawIdx] = 'patched';
+  renderLaws();
+  document.getElementById('arch-badge').className  = 'badge badge-warn';
+  document.getElementById('arch-badge').textContent = 'PATCHING';
+  updateButtons();
+  term('warn',  `[ARCH]  🏛 Rewriting ${LAWS[patchedLawIdx].name} physics patch…`);
+  term('info',  `[ARCH]  🏛 Patch applied to ${LAWS[patchedLawIdx].name} — awaiting harmonize`);
+  term('info',  '[SYNC]  ⟲ Patch queued — click HARMONIZE to push to Centrifugal Core');
+}
+
+function startSync() {
+  if (state !== S.PATCHING) return;
+  state = S.SYNCING;
+  syncProgress = 0; syncTarget = 100;
+  document.getElementById('sync-badge').className   = 'badge badge-info';
+  document.getElementById('sync-badge').textContent  = 'SYNCING';
+  document.getElementById('sync-status').textContent = 'Harmonizing patch with Main Existence…';
+  document.getElementById('buffer-overlay').style.display = 'none';
+  setPill('warn', 'HARMONIZING');
+  setCoreState('HARMONIZING', 'var(--amber)');
+  updateButtons();
+  term('info', '[SYNC]  ⟲ Gitsync pushing patched rhythm to Centrifugal Core…');
+}
+
+function resetAll() {
+  state = S.NOMINAL;
+  glitch = null; patchedLawIdx = -1;
+  syncProgress = 0; syncTarget = 0;
+  lawStates = LAWS.map(() => 'stable');
+  renderLaws();
+  document.getElementById('buffer-overlay').style.display = 'none';
+  setPill('ok', 'NOMINAL');
+  setCoreState('STREAMING', 'var(--accent)');
+  document.getElementById('arch-badge').className  = 'badge badge-ok';
+  document.getElementById('arch-badge').textContent = 'STABLE';
+  document.getElementById('pulse-badge').className  = 'badge badge-ok';
+  document.getElementById('pulse-badge').textContent = 'ERYTHMIA OK';
+  document.getElementById('scan-badge').className   = 'badge badge-scan';
+  document.getElementById('scan-badge').textContent  = 'SWEEPING';
+  document.getElementById('sync-badge').className   = 'badge badge-info';
+  document.getElementById('sync-badge').textContent  = 'IDLE';
+  document.getElementById('sync-status').textContent = 'Awaiting sync signal';
+  document.getElementById('sync-pct-num').textContent = '0%';
+  updateButtons();
+  term('dim', '[RESET] System reset to nominal state');
+}
+
+/* sync auto-advance */
+setInterval(() => {
+  if (state === S.SYNCING) {
+    syncProgress = Math.min(100, syncProgress + (Math.random() * 3 + 1));
+    if (syncProgress >= 100) {
+      syncProgress = 100;
+      state = S.HEALED;
+      lawStates[patchedLawIdx] = 'stable';
+      renderLaws();
+      setPill('ok', 'HEALED');
+      setCoreState('STREAMING', 'var(--accent)');
+      document.getElementById('arch-badge').className  = 'badge badge-ok';
+      document.getElementById('arch-badge').textContent = 'STABLE';
+      document.getElementById('sync-badge').className   = 'badge badge-ok';
+      document.getElementById('sync-badge').textContent  = '100% MATCH';
+      document.getElementById('sync-status').textContent = 'Reality re-integration complete';
+      document.getElementById('pulse-badge').className  = 'badge badge-ok';
+      document.getElementById('pulse-badge').textContent = 'ERYTHMIA OK';
+      updateButtons();
+      term('ok', '[SYNC]  ⟲ 100% match achieved — patch harmonized with Main Existence');
+      term('ok', `[HEAL]  ✓ Glitch ${glitch.id} resolved — world stabilized`);
+    }
+  }
+}, 120);
+
+/* ═══════════════════════════════════════════════════════════
+   CANVAS HELPERS
+   ═══════════════════════════════════════════════════════════ */
+function fitCanvas(canvas) {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  if (canvas.width !== Math.floor(rect.width) || canvas.height !== Math.floor(rect.height)) {
+    canvas.width  = Math.floor(rect.width);
+    canvas.height = Math.floor(rect.height);
+  }
+}
+window.addEventListener('resize', () => {
+  [coreCanvas, ecgCanvas, radarCanvas, archCanvas].forEach(fitCanvas);
+});
+
+/* ═══════════════════════════════════════════════════════════
+   CENTER CORE — 3D Sine-Wave Ribbon  ≋
+   ═══════════════════════════════════════════════════════════ */
+const coreCanvas = document.getElementById('core-canvas');
+const cCtx = coreCanvas.getContext('2d');
+let coreTime = 0;
+
+/* glitch noise helper */
+function glitchNoise(mag) {
+  return (Math.random() - 0.5) * 2 * mag;
+}
+
+function drawCore(ts) {
+  coreTime = ts * 0.001;
+  fitCanvas(coreCanvas);
+  const W = coreCanvas.width, H = coreCanvas.height;
+  const cx = W / 2, cy = H / 2;
+  const isGlitch  = state === S.GLITCH;
+  const isBuffer  = state === S.BUFFERED;
+  const isSync    = state === S.SYNCING || state === S.HEALED;
+
+  cCtx.clearRect(0, 0, W, H);
+
+  /* speed & amplitude modifiers per state */
+  const speed = isGlitch ? 3.5 : isBuffer ? 0.3 : 1.6;
+  const baseAmp = isGlitch ? 0.55 : isBuffer ? 0.25 : 0.38;
+  const waveColor = isGlitch ? [255, 48, 96] : isSync ? [0, 255, 153] : [0, 212, 255];
+
+  /* ── 3-D Ribbon: draw layers from back→front ─────────────────────── */
+  const NUM_LAYERS = 22;
+  const RIBBON_HALF = 28; // half-thickness in px
+  const rotAngle = coreTime * (isBuffer ? 0.05 : 0.28);
+
+  for (let l = 0; l < NUM_LAYERS; l++) {
+    const t = l / (NUM_LAYERS - 1);      // 0 = back, 1 = front
+    const phi = t * Math.PI + rotAngle;
+    const ribbonY = Math.sin(phi) * RIBBON_HALF; // vertical displacement
+    const depth   = (Math.cos(phi) + 1) / 2;     // 0–1, 1 = front face
+    const amp = (H * baseAmp) * (0.65 + depth * 0.35);
+    const alpha = isGlitch
+      ? (0.08 + depth * 0.92)
+      : (0.05 + depth * 0.95);
+    const lw = 0.6 + depth * 2;
+    const [r, g, b] = waveColor;
+
+    cCtx.beginPath();
+    const steps = Math.ceil(W / 2);
+    for (let i = 0; i <= steps; i++) {
+      const x = (i / steps) * W;
+      const phase = (x / W) * Math.PI * 5 - coreTime * speed;
+      let yVal = Math.sin(phase) * amp;
+      /* jagged noise in glitch state */
+      if (isGlitch) yVal += glitchNoise(amp * 0.35);
+      /* buffer flattening */
+      if (isBuffer) yVal *= (0.2 + 0.8 * (1 - syncProgress / 100));
+      const y = cy + ribbonY + yVal;
+      i === 0 ? cCtx.moveTo(x, y) : cCtx.lineTo(x, y);
+    }
+    cCtx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+    cCtx.lineWidth = lw;
+    if (depth > 0.7) {
+      cCtx.shadowColor = `rgb(${r},${g},${b})`;
+      cCtx.shadowBlur  = 6 + depth * 10;
+    }
+    cCtx.stroke();
+    cCtx.shadowBlur = 0;
+  }
+
+  /* ── Centrifugal Core rings ─────────────────────────────────────── */
+  const cRing1 = Math.min(W, H) * 0.40;
+  const cRing2 = Math.min(W, H) * 0.30;
+  const ringColor = isGlitch ? 'rgba(255,48,96,' : 'rgba(0,212,255,';
+  const ringColor2 = isGlitch ? 'rgba(255,100,0,' : 'rgba(123,47,255,';
+
+  /* static rings */
+  cCtx.beginPath(); cCtx.arc(cx, cy, cRing1, 0, Math.PI*2);
+  cCtx.strokeStyle = ringColor + '0.12)'; cCtx.lineWidth = 1; cCtx.stroke();
+  cCtx.beginPath(); cCtx.arc(cx, cy, cRing2, 0, Math.PI*2);
+  cCtx.strokeStyle = ringColor2 + '0.12)'; cCtx.lineWidth = 1; cCtx.stroke();
+
+  /* spinning arcs */
+  const a1 =  coreTime * (isGlitch ? 1.4 : 0.45);
+  const a2 = -coreTime * (isGlitch ? 1.8 : 0.65);
+  cCtx.beginPath();
+  cCtx.arc(cx, cy, cRing1, a1, a1 + Math.PI * 0.55);
+  cCtx.strokeStyle = isGlitch ? 'rgba(255,48,96,0.9)' : '#00d4ff';
+  cCtx.lineWidth = 2.5; cCtx.shadowColor = cCtx.strokeStyle; cCtx.shadowBlur = 14;
+  cCtx.stroke(); cCtx.shadowBlur = 0;
+
+  cCtx.beginPath();
+  cCtx.arc(cx, cy, cRing2, a2, a2 + Math.PI * 0.4);
+  cCtx.strokeStyle = isGlitch ? 'rgba(255,100,0,0.8)' : '#7b2fff';
+  cCtx.lineWidth = 2; cCtx.shadowColor = cCtx.strokeStyle; cCtx.shadowBlur = 10;
+  cCtx.stroke(); cCtx.shadowBlur = 0;
+
+  /* Vector Triangulation Nodes (6 Gitpin ∆) */
+  const nodeR = Math.min(W, H) * 0.32;
+  for (let i = 0; i < 6; i++) {
+    const ang = (i / 6) * Math.PI * 2 + coreTime * (isGlitch ? 0.4 : 0.15);
+    const nx = cx + Math.cos(ang) * nodeR;
+    const ny = cy + Math.sin(ang) * nodeR;
+    const pulse = (Math.sin(coreTime * 2.5 + i) + 1) / 2;
+    const nc = isGlitch ? `rgba(255,48,96,${0.4 + pulse*0.6})` : `rgba(0,255,153,${0.4 + pulse*0.6})`;
+    cCtx.beginPath(); cCtx.arc(nx, ny, 4, 0, Math.PI*2);
+    cCtx.fillStyle = nc; cCtx.shadowColor = nc; cCtx.shadowBlur = 6 + pulse*5;
+    cCtx.fill(); cCtx.shadowBlur = 0;
+    cCtx.fillStyle = 'rgba(0,255,153,0.6)';
+    cCtx.font = '8px Courier New';
+    cCtx.fillText('∆', nx - 4, ny - 8);
+  }
+
+  /* Central repo-link port */
+  const cp = (Math.sin(coreTime * 1.4) + 1) / 2;
+  cCtx.beginPath(); cCtx.arc(cx, cy, 20, 0, Math.PI*2);
+  const fgr = isGlitch ? `rgba(255,48,96,${0.15+cp*0.25})` : `rgba(0,212,255,${0.12+cp*0.22})`;
+  cCtx.fillStyle = fgr; cCtx.fill();
+  cCtx.strokeStyle = isGlitch ? 'rgba(255,48,96,.8)' : 'var(--accent)';
+  cCtx.lineWidth = 1.5; cCtx.stroke();
+  cCtx.font = '13px serif';
+  cCtx.textAlign = 'center'; cCtx.textBaseline = 'middle';
+  cCtx.fillStyle = '#fff'; cCtx.fillText('📡', cx, cy);
+  cCtx.textAlign = 'left'; cCtx.textBaseline = 'alphabetic';
+
+  requestAnimationFrame(drawCore);
+}
+requestAnimationFrame(drawCore);
+
+/* ═══════════════════════════════════════════════════════════
+   LEFT — ECG CANVAS (Gitpulse ♥)
+   ═══════════════════════════════════════════════════════════ */
+const ecgCanvas = document.getElementById('ecg-canvas');
+const eCtx = ecgCanvas.getContext('2d');
+const ECG_BUF = 320;
+const ecgData  = new Float32Array(ECG_BUF);
+let ecgPhase   = 0;
+let ecgSpikeT  = 0;
+
+function ecgSample(t) {
+  const base = Math.sin(t * 0.3) * 0.04; // slight baseline wander
+  /* QRS-like periodic spike */
+  const period = state === S.GLITCH ? 28 : 55;
+  const pos = t % period;
+  let spike = 0;
+  if      (pos < 1)  spike =  0.15;                   /* P wave */
+  else if (pos < 3)  spike =  0;
+  else if (pos < 3.5)spike = -0.25;                   /* Q */
+  else if (pos < 4.5)spike = state===S.GLITCH ? (0.9+Math.random()*0.5) : 0.85; /* R */
+  else if (pos < 5.5)spike = -0.18;                   /* S */
+  else if (pos < 8)  spike =  0.12;                   /* T wave */
+  const noise = state === S.GLITCH ? glitchNoise(0.3) : glitchNoise(0.015);
+  return base + spike + noise;
+}
+
+let ecgT = 0;
+function tickECG() {
+  ecgT++;
+  /* shift buffer */
+  ecgData.copyWithin(0, 1);
+  ecgData[ECG_BUF - 1] = ecgSample(ecgT * 0.5);
+}
+
+function drawECG() {
+  fitCanvas(ecgCanvas);
+  const W = ecgCanvas.width, H = ecgCanvas.height;
+  eCtx.clearRect(0, 0, W, H);
+
+  /* grid */
+  eCtx.strokeStyle = 'rgba(0,255,153,0.04)';
+  eCtx.lineWidth = 1;
+  for (let x = 0; x < W; x += 20) {
+    eCtx.beginPath(); eCtx.moveTo(x,0); eCtx.lineTo(x,H); eCtx.stroke();
+  }
+  for (let y = 0; y < H; y += 20) {
+    eCtx.beginPath(); eCtx.moveTo(0,y); eCtx.lineTo(W,y); eCtx.stroke();
+  }
+
+  const midY = H * 0.5;
+  const amp  = H * 0.38;
+  const isG  = state === S.GLITCH;
+
+  eCtx.beginPath();
+  const step = W / ECG_BUF;
+  for (let i = 0; i < ECG_BUF; i++) {
+    const x = i * step;
+    const y = midY - ecgData[i] * amp;
+    i === 0 ? eCtx.moveTo(x, y) : eCtx.lineTo(x, y);
+  }
+  eCtx.strokeStyle = isG ? '#ff3060' : '#00ff99';
+  eCtx.lineWidth   = isG ? 1.5 : 1.2;
+  eCtx.shadowColor = eCtx.strokeStyle;
+  eCtx.shadowBlur  = isG ? 6 : 4;
+  eCtx.stroke();
+  eCtx.shadowBlur = 0;
+
+  /* label */
+  eCtx.fillStyle = isG ? 'rgba(255,48,96,.5)' : 'rgba(0,255,153,.3)';
+  eCtx.font = '9px Courier New';
+  eCtx.fillText(isG ? 'OFF-BEAT DETECTED' : 'ERYTHMIA NOMINAL', 6, H - 6);
+}
+
+setInterval(tickECG, 22);
+
+/* ═══════════════════════════════════════════════════════════
+   LEFT — RADAR CANVAS (Gitscan ◈)
+   ═══════════════════════════════════════════════════════════ */
+const radarCanvas = document.getElementById('radar-canvas');
+const rCtx = radarCanvas.getContext('2d');
+let radarAngle = 0;
+const radarPings = []; // {x, y, age, max}
+
+function addRadarThreat() {
+  fitCanvas(radarCanvas);
+  const W = radarCanvas.width, H = radarCanvas.height;
+  const cx = W/2, cy = H/2, r = Math.min(cx,cy)*0.75;
+  const a = Math.random() * Math.PI * 2;
+  const d = (0.3 + Math.random() * 0.65) * r;
+  radarPings.push({ x: cx + Math.cos(a)*d, y: cy + Math.sin(a)*d, age: 0, max: 90 });
+}
+
+function drawRadar() {
+  fitCanvas(radarCanvas);
+  const W = radarCanvas.width, H = radarCanvas.height;
+  const cx = W/2, cy = H/2;
+  const R  = Math.min(cx, cy) * 0.82;
+
+  rCtx.clearRect(0, 0, W, H);
+
+  /* grid rings */
+  for (let i = 1; i <= 4; i++) {
+    rCtx.beginPath(); rCtx.arc(cx, cy, (R/4)*i, 0, Math.PI*2);
+    rCtx.strokeStyle = 'rgba(123,47,255,0.15)'; rCtx.lineWidth = 1; rCtx.stroke();
+  }
+  /* crosshair */
+  rCtx.strokeStyle = 'rgba(123,47,255,0.1)'; rCtx.lineWidth = 1;
+  rCtx.beginPath(); rCtx.moveTo(cx-R, cy); rCtx.lineTo(cx+R, cy); rCtx.stroke();
+  rCtx.beginPath(); rCtx.moveTo(cx, cy-R); rCtx.lineTo(cx, cy+R); rCtx.stroke();
+
+  /* sweep gradient */
+  radarAngle = (radarAngle + 0.025) % (Math.PI * 2);
+  const sweepLen = Math.PI * 0.65;
+  const grad = rCtx.createConicalGradient
+    ? null  /* not universally available */
+    : null;
+
+  /* draw sweep as filled arc sector */
+  rCtx.beginPath();
+  rCtx.moveTo(cx, cy);
+  rCtx.arc(cx, cy, R, radarAngle - sweepLen, radarAngle);
+  rCtx.closePath();
+  const sweepColor = state === S.GLITCH ? 'rgba(255,48,96,' : 'rgba(123,47,255,';
+  const g = rCtx.createRadialGradient(cx, cy, 0, cx, cy, R);
+  g.addColorStop(0,   sweepColor + '0.0)');
+  g.addColorStop(0.7, sweepColor + '0.04)');
+  g.addColorStop(1.0, sweepColor + '0.12)');
+  rCtx.fillStyle = g;
+  rCtx.fill();
+
+  /* sweep leading edge */
+  rCtx.beginPath();
+  rCtx.moveTo(cx, cy);
+  rCtx.lineTo(cx + Math.cos(radarAngle)*R, cy + Math.sin(radarAngle)*R);
+  rCtx.strokeStyle = state === S.GLITCH ? 'rgba(255,48,96,0.85)' : 'rgba(123,47,255,0.85)';
+  rCtx.lineWidth = 1.5; rCtx.shadowColor = rCtx.strokeStyle; rCtx.shadowBlur = 6;
+  rCtx.stroke(); rCtx.shadowBlur = 0;
+
+  /* pings */
+  for (let i = radarPings.length - 1; i >= 0; i--) {
+    const p = radarPings[i];
+    p.age++;
+    const a = 1 - p.age / p.max;
+    rCtx.beginPath(); rCtx.arc(p.x, p.y, 3 + (p.age/p.max)*6, 0, Math.PI*2);
+    rCtx.strokeStyle = `rgba(255,48,96,${a * 0.9})`;
+    rCtx.lineWidth = 1.5; rCtx.shadowColor = '#ff3060'; rCtx.shadowBlur = 4*a;
+    rCtx.stroke(); rCtx.shadowBlur = 0;
+    rCtx.beginPath(); rCtx.arc(p.x, p.y, 2, 0, Math.PI*2);
+    rCtx.fillStyle = `rgba(255,184,0,${a})`;
+    rCtx.fill();
+    if (p.age >= p.max) radarPings.splice(i, 1);
+  }
+
+  /* center dot */
+  rCtx.beginPath(); rCtx.arc(cx, cy, 3, 0, Math.PI*2);
+  rCtx.fillStyle = state === S.GLITCH ? 'var(--red)' : 'var(--accent2)';
+  rCtx.fill();
+
+  /* label */
+  rCtx.fillStyle = 'rgba(123,47,255,0.45)'; rCtx.font = '8px Courier New';
+  rCtx.textAlign = 'center';
+  rCtx.fillText('INERTIA FORCE DETECTION', cx, H - 6);
+  rCtx.textAlign = 'left';
+}
+
+/* occasional ambient pings (not glitch) */
+setInterval(() => {
+  if (state === S.NOMINAL || state === S.HEALED) {
+    if (Math.random() < 0.2) addRadarThreat();
+  }
+}, 2000);
+
+/* ═══════════════════════════════════════════════════════════
+   RIGHT — GITARCH WIREFRAME
+   ═══════════════════════════════════════════════════════════ */
+const archCanvas = document.getElementById('arch-canvas');
+const aCtx = archCanvas.getContext('2d');
+let archTime = 0;
+
+/* 3-D hex-column structure */
+function hexPoints(cx, cy, r, n, phase) {
+  return Array.from({length:n}, (_,i) => {
+    const a = (i/n)*Math.PI*2 + phase;
+    return [cx + Math.cos(a)*r, cy + Math.sin(a)*r];
+  });
+}
+
+function drawArch(ts) {
+  archTime = ts * 0.001;
+  fitCanvas(archCanvas);
+  const W = archCanvas.width, H = archCanvas.height;
+  const cx = W/2, cy = H/2;
+  const R  = Math.min(W,H) * 0.34;
+  const rot = archTime * 0.15;
+
+  aCtx.clearRect(0, 0, W, H);
+
+  const isGlitch = state === S.GLITCH || state === S.BUFFERED || state === S.PATCHING;
+
+  /* two hexagonal rings (top & bottom in simulated 3D) */
+  const topY    = cy - H*0.22;
+  const botY    = cy + H*0.22;
+  const topPts  = hexPoints(cx, topY, R*0.7, 6, rot);
+  const botPts  = hexPoints(cx, botY, R*0.7, 6, rot);
+
+  const drawEdge = (x1, y1, x2, y2, col, lw, glow) => {
+    aCtx.beginPath(); aCtx.moveTo(x1,y1); aCtx.lineTo(x2,y2);
+    aCtx.strokeStyle = col; aCtx.lineWidth = lw;
+    aCtx.shadowColor = glow || col; aCtx.shadowBlur = glow ? 8 : 0;
+    aCtx.stroke(); aCtx.shadowBlur = 0;
+  };
+
+  /* vertical "foundational beams" — one per law */
+  LAWS.forEach((law, i) => {
+    const [tx, ty] = topPts[i];
+    const [bx, by] = botPts[i];
+    const ls = lawStates[i];
+    const col = ls === 'anomaly' ? 'rgba(255,48,96,0.85)'
+              : ls === 'patched' ? 'rgba(255,184,0,0.8)'
+              : 'rgba(0,212,255,0.35)';
+    const lw  = ls === 'anomaly' || ls === 'patched' ? 2 : 1;
+    const glow = ls !== 'stable' ? col : null;
+    drawEdge(tx, ty, bx, by, col, lw, glow);
+
+    /* law label */
+    const mx = (tx+bx)/2, my = (ty+by)/2;
+    aCtx.fillStyle = ls === 'anomaly' ? 'rgba(255,48,96,0.7)'
+                   : ls === 'patched' ? 'rgba(255,184,0,0.7)'
+                   : 'rgba(0,212,255,0.3)';
+    aCtx.font = '7px Courier New'; aCtx.textAlign = 'center';
+    aCtx.fillText(law.name, mx, my - 3);
+    aCtx.textAlign = 'left';
+  });
+
+  /* top & bottom hex rings */
+  const ringColor = isGlitch ? 'rgba(255,48,96,0.25)' : 'rgba(0,212,255,0.18)';
+  [topPts, botPts].forEach(pts => {
+    aCtx.beginPath();
+    pts.forEach(([x,y],i) => i===0 ? aCtx.moveTo(x,y) : aCtx.lineTo(x,y));
+    aCtx.closePath();
+    aCtx.strokeStyle = ringColor; aCtx.lineWidth = 1; aCtx.stroke();
+  });
+
+  /* central axis pillar */
+  drawEdge(cx, topY, cx, botY, 'rgba(123,47,255,0.5)', 1.5);
+  const cp = (Math.sin(archTime*1.2)+1)/2;
+  aCtx.beginPath(); aCtx.arc(cx, cy, 5, 0, Math.PI*2);
+  aCtx.fillStyle = `rgba(123,47,255,${0.4+cp*0.5})`;
+  aCtx.shadowColor = '#7b2fff'; aCtx.shadowBlur = 8*cp;
+  aCtx.fill(); aCtx.shadowBlur = 0;
+
+  /* cross-bracing (triangles top→bot adjacent) */
+  for (let i = 0; i < 6; i++) {
+    const [tx,ty] = topPts[i];
+    const [bx,by] = botPts[(i+1)%6];
+    drawEdge(tx,ty,bx,by,'rgba(0,212,255,0.08)',1);
+  }
+
+  requestAnimationFrame(drawArch);
+}
+requestAnimationFrame(drawArch);
+
+/* ═══════════════════════════════════════════════════════════
+   RIGHT — GITSYNC ARC
+   ═══════════════════════════════════════════════════════════ */
+const syncCanvas = document.getElementById('sync-canvas');
+const sCtx = syncCanvas.getContext('2d');
+
+function drawSync() {
+  const W = syncCanvas.width, H = syncCanvas.height;
+  const cx = W/2, cy = H/2, r = Math.min(cx,cy)*0.82;
+  const pct = syncProgress / 100;
+
+  sCtx.clearRect(0, 0, W, H);
+
+  /* track */
+  sCtx.beginPath(); sCtx.arc(cx, cy, r, 0, Math.PI*2);
+  sCtx.strokeStyle = 'rgba(0,212,255,0.1)'; sCtx.lineWidth = 10; sCtx.stroke();
+
+  /* fill */
+  if (pct > 0) {
+    sCtx.beginPath();
+    sCtx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + Math.PI*2*pct);
+    const col = pct >= 1 ? '#00ff99' : pct > 0.5 ? '#00d4ff' : '#7b2fff';
+    sCtx.strokeStyle = col;
+    sCtx.lineWidth = 10;
+    sCtx.shadowColor = col; sCtx.shadowBlur = 12;
+    sCtx.stroke(); sCtx.shadowBlur = 0;
+  }
+
+  /* tick marks */
+  for (let i = 0; i < 12; i++) {
+    const a = (i/12)*Math.PI*2 - Math.PI/2;
+    const x1 = cx + Math.cos(a)*(r-7), y1 = cy + Math.sin(a)*(r-7);
+    const x2 = cx + Math.cos(a)*(r+3), y2 = cy + Math.sin(a)*(r+3);
+    sCtx.beginPath(); sCtx.moveTo(x1,y1); sCtx.lineTo(x2,y2);
+    sCtx.strokeStyle = 'rgba(0,212,255,0.2)'; sCtx.lineWidth = 1; sCtx.stroke();
+  }
+
+  /* update pct label */
+  document.getElementById('sync-pct-num').textContent = Math.round(syncProgress) + '%';
+}
+
+setInterval(drawSync, 50);
+
+/* ═══════════════════════════════════════════════════════════
+   BOTTOM — TERMINAL (Gitpub 📡)
+   ═══════════════════════════════════════════════════════════ */
+const MAX_LINES = 60;
+const termEl = document.getElementById('terminal-lines');
+
+function ts() {
+  return new Date().toISOString().substring(11,23);
+}
+
+function term(type, msg) {
+  while (termEl.children.length >= MAX_LINES) termEl.removeChild(termEl.firstChild);
+  const d = document.createElement('div');
+  d.className = 'tline ' + type;
+  d.textContent = ts() + '  ' + msg;
+  termEl.appendChild(d);
+  termEl.scrollTop = termEl.scrollHeight;
+}
+
+/* Boot sequence */
+(function boot() {
+  const lines = [
+    ['dim',  '[GITPUB] 📡 Repo-Link port opening…'],
+    ['info', '[GITPUB] Connecting to Main Existence stream…'],
+    ['ok',   '[GITPUB] Signal locked — latency 42 ms'],
+    ['info', '[BOOT]   Giro Brain v3.0 initializing'],
+    ['info', '[FLOW]   ≋ Gitflow Streamliner: ONLINE'],
+    ['info', '[PULSE]  ♥ Gitpulse Diagnostic: ONLINE'],
+    ['info', '[ARCH]   🏛 Gitarch Architect: ONLINE'],
+    ['info', '[SYNC]   ⟲ Gitsync Harmonizer: ONLINE'],
+    ['info', '[SCAN]   ◈ Gitscan Sentry: ONLINE — sweep active'],
+    ['ok',   '[BOOT]   All GP Suite AIs nominal — Quantum Rhythm Engine ready'],
+  ];
+  lines.forEach(([t, m], i) => setTimeout(() => term(t, m), i * 180));
+})();
+
+/* Periodic ambient terminal messages */
+const AMBIENT = [
+  ['dim',  '[GITPUB] Heartbeat ACK received from Main Existence'],
+  ['info', '[SCAN]   ◈ Sector sweep complete — threat index: low'],
+  ['info', '[PULSE]  ♥ Erythmia variance: ±0.02 (nominal)'],
+  ['dim',  '[FLOW]   ≋ Inertia pool pressure: 78.4 kΩ — nominal'],
+  ['info', '[ARCH]   🏛 Physics constant drift check: PASS'],
+  ['dim',  '[GITPUB] World-stream packets: 1,024 rx / 312 tx'],
+  ['info', '[SYNC]   ⟲ Rhythm match maintained at 97.3%'],
+  ['dim',  '[SCAN]   ◈ External inertia force: 0.003 Ω — below threshold'],
+  ['info', '[FLOW]   ≋ Fork smoothing engaged — 2 branches in progress'],
+  ['dim',  '[PULSE]  ♥ T-wave amplitude nominal across all Gitpins'],
+];
+let ambIdx = 0;
+setInterval(() => {
+  if (state === S.NOMINAL || state === S.HEALED) {
+    const e = AMBIENT[ambIdx % AMBIENT.length];
+    term(e[0], e[1]);
+    ambIdx++;
+  }
+}, 3800);
+
+/* ═══════════════════════════════════════════════════════════
+   MASTER ANIMATION LOOP (ECG + Radar share rAF)
+   ═══════════════════════════════════════════════════════════ */
+function masterLoop() {
+  drawECG();
+  drawRadar();
+  requestAnimationFrame(masterLoop);
+}
+requestAnimationFrame(masterLoop);
+</script>
+</body>
+</html>
