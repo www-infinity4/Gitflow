@@ -92,7 +92,7 @@ let walkState = {
   npcMessages: [
     'Hey, Gitflow picked up an off-beat in sector 3!',
     'Your repo has a new fork — GitPin is anchoring it now.',
-    'The Giro says: rhythm shock suppressed. You're good to re-enter.',
+    "The Giro says: rhythm shock suppressed. You're good to re-enter.",
     'Bitcoin reward: 1000 sats added for completing the downtown run.',
   ],
   npcIdx: 0,
