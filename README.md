@@ -15,6 +15,9 @@
 | `index.html` | **Quantum Rhythm Engine** — Bio-Digital Feedback Loop dashboard |
 | `game.html` | **≋ Gitflow Racing** — Pseudo-3D F1 game (Commodore rebuilt) |
 | `src/game.js` | Full game engine (road renderer, physics, AI, scenes, chat) |
+| `INFINITY_BUILD_QUEUE.md` | Permanent Wave, generator, collectible, Auto Pen and Auto Me implementation queue |
+| `AUTO_ME_ARCHITECTURE.md` | Authorized chat-history importer and website-resident personal builder |
+| `site-wave-registry.json` | Machine-readable rollout state for the 100+ website Wave |
 
 ---
 
