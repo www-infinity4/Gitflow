@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gitflow Token Lab · Commit-to-Build</title>
+  <meta name="description" content="Live Gitflow family commit watcher, action-token ledger, research record, project floor plan and click-to-build queue.">
+  <link rel="stylesheet" href="token-lab.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Gitflow home"><span>≋</span> GITFLOW</a>
+    <nav aria-label="Gitflow tools">
+      <a href="index.html">Engine</a>
+      <a href="game.html">Racing</a>
+      <a class="active" href="token-lab.html">Token Lab</a>
+      <a href="https://github.com/www-infinity4/Gitflow" target="_blank" rel="noreferrer">Repository</a>
+    </nav>
+    <div id="watcher-status" class="status"><i></i><span>Starting watcher…</span></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">LIVE COMMIT → ACTION TOKEN → PROJECT PAGE</p>
+        <h1>Every change becomes work you can inspect, research and build.</h1>
+        <p class="lede">The watcher reads real public GitHub data from the Gitflow family and Alien Radio. A token uses the full commit hash as its permanent identity and keeps the evidence, files, lineage, plan and next build action together.</p>
+      </div>
+      <div class="hero-actions">
+        <button id="refresh-button" class="primary">↻ Scan repositories</button>
+        <button id="export-button">↓ Export watcher data</button>
+        <span id="last-scan">Not scanned yet</span>
+      </div>
+    </section>
+
+    <section class="metrics" aria-label="Watcher totals">
+      <article><span id="metric-repos">0</span><small>repositories reached</small></article>
+      <article><span id="metric-tokens">0</span><small>commit tokens</small></article>
+      <article><span id="metric-files">ON</span><small>file maps on open</small></article>
+      <article><span id="metric-broken">0</span><small>broken routes found</small></article>
+    </section>
+
+    <section class="workspace">
+      <aside class="filters" aria-label="Token filters">
+        <h2>Project pages</h2>
+        <p>Choose a machine, then move through its real work by color.</p>
+        <div id="repo-filters" class="repo-filters"></div>
+
+        <h2>Action colors</h2>
+        <div id="color-filters" class="color-filters">
+          <button class="color-filter active" data-color="all"><b>All</b><span>complete stream</span></button>
+          <button class="color-filter" data-color="green"><i></i><b>Green</b><span>engineering</span></button>
+          <button class="color-filter" data-color="blue"><i></i><b>Blue</b><span>import</span></button>
+          <button class="color-filter" data-color="purple"><i></i><b>Purple</b><span>assimilation</span></button>
+          <button class="color-filter" data-color="yellow"><i></i><b>Yellow</b><span>data</span></button>
+          <button class="color-filter" data-color="pink"><i></i><b>Pink</b><span>investigate</span></button>
+          <button class="color-filter" data-color="red"><i></i><b>Red</b><span>routes / repair</span></button>
+          <button class="color-filter" data-color="orange"><i></i><b>Orange</b><span>decisions</span></button>
+        </div>
+      </aside>
+
+      <section class="ledger" aria-live="polite">
+        <div class="section-head">
+          <div><p class="eyebrow">WATCHER LEDGER</p><h2 id="ledger-title">Fresh action tokens</h2></div>
+          <label>Search <input id="token-search" type="search" placeholder="commit, repo, file, idea…"></label>
+        </div>
+        <div id="watcher-notice" class="notice">Reading verified repository history. No random values or invented activity will be shown.</div>
+        <div id="token-grid" class="token-grid"></div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="token-dialog">
+    <button class="dialog-close" id="dialog-close" aria-label="Close token page">×</button>
+    <div id="token-page"></div>
+  </dialog>
+
+  <template id="loading-template">
+    <article class="token-card loading-card"><div></div><div></div><div></div></article>
+  </template>
+
+  <script src="token-lab.js"></script>
+</body>
+</html>

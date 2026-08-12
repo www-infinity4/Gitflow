@@ -14,6 +14,9 @@
 |---|---|
 | `index.html` | **Quantum Rhythm Engine** — Bio-Digital Feedback Loop dashboard |
 | `game.html` | **≋ Gitflow Racing** — Pseudo-3D F1 game (Commodore rebuilt) |
+| `token-lab.html` | **Commit-to-Build Token Lab** — live watcher and readable token project pages |
+| `token-lab.js` | GitHub commit watcher, color routing, evidence pages and build-work packet generator |
+| `gitflow-family.json` | Machine-readable Gitflow-family registry and color-code contract |
 | `src/game.js` | Full game engine (road renderer, physics, AI, scenes, chat) |
 | `INFINITY_BUILD_QUEUE.md` | Permanent Wave, generator, collectible, Auto Pen and Auto Me implementation queue |
 | `AUTO_ME_ARCHITECTURE.md` | Authorized chat-history importer and website-resident personal builder |
@@ -129,3 +132,19 @@ Open `index.html` to launch the **Bio-Digital Feedback Loop** — a surgical mon
 2. **⬡ MOMENTUM BUFFER** — Gitflow ≋ freezes local inertia; wave slows and stabilises
 3. **🏛 APPLY PATCH** — Gitarch rewrites the anomalous physics law (Gravity / Entropy / Planck)
 4. **⟲ HARMONIZE & SYNC** — Gitsync pushes the patch to the Centrifugal Core; arc fills to 100%
+
+---
+
+## Commit-to-Build Token Lab (`token-lab.html`)
+
+The Token Lab replaces decorative or random activity with a live, inspectable GitHub watcher.
+
+- Watches Gitflow, GitPin, Gitpro, Gitpub, Gitarch, Gitpulse, Gitscan, Gitsync and Alien Radio.
+- Uses the full Git commit SHA as the token identity and preserves the parent SHA as lineage.
+- Opens a readable token page with the actual commit, changed files, additions/deletions, research record, project floor plan, output and robot work queue.
+- Routes work with the agreed colors: green engineering, blue import, purple assimilation, yellow data, pink investigate, red routes/repair and orange decisions.
+- Turns unavailable repositories into visible red repair tokens instead of hiding broken pieces.
+- Creates a prefilled GitHub build issue so `BUILD THIS NEXT` produces a real work item connected to its parent commit token.
+- Exports the current watcher ledger as JSON for syncing into Alien Radio or another repository.
+
+The browser reads GitHub's public REST API. It does not invent activity, require an API key, or store a GitHub credential in the page.
