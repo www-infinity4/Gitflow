@@ -1,0 +1,24 @@
+{
+  "schema": "infinity/action-token-registry/v1",
+  "owner": "www-infinity4",
+  "watch": [
+    {"repo":"Gitflow","role":"Streamliner","symbol":"≋","purpose":"Move an idea from commit history into an inspectable build path."},
+    {"repo":"GitPin","role":"Anchor","symbol":"∆","purpose":"Pin source evidence, files and stable project locations to each token."},
+    {"repo":"Gitpro","role":"Stylist","symbol":"◆","purpose":"Turn visual and interaction decisions into explicit build artifacts."},
+    {"repo":"Gitpub","role":"Broadcaster","symbol":"📡","purpose":"Publish verified project events without simulated activity."},
+    {"repo":"Gitarch","role":"Architect","symbol":"🏛","purpose":"Map components, dependencies, plans and floor plans."},
+    {"repo":"Gitpulse","role":"Diagnostic","symbol":"♥","purpose":"Measure real project movement and identify stalled work."},
+    {"repo":"Gitscan","role":"Sentry","symbol":"◈","purpose":"Find broken routes, missing evidence and failed repository reads."},
+    {"repo":"Gitsync","role":"Harmonizer","symbol":"⟲","purpose":"Keep commit, token, research record and output references synchronized."},
+    {"repo":"Alien-Radio","role":"Signal Station","symbol":"👾","purpose":"Collect research signals and turn station activity into traceable action tokens."}
+  ],
+  "colors": {
+    "green":"engineering",
+    "blue":"import",
+    "purple":"assimilation",
+    "yellow":"data",
+    "pink":"investigate",
+    "red":"routes / repair",
+    "orange":"decisions"
+  }
+}
